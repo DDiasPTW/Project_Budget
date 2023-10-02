@@ -1,21 +1,26 @@
 import SwiftUI
 
 struct MainView: View {
+    @EnvironmentObject var incomeManager: IncomeManager
+    @EnvironmentObject var expenseManager: ExpenseManager
+    
     // User's current balance
     @State private var balance: Double = UserDefaults.standard.double(forKey: "balance") // Load balance from UserDefaults
     
     @State private var isIncomeViewPresented = false // Control the presentation of IncomeView
     @State private var isExpenseViewPresented = false // Control the presentation of ExpenseView
+    @State private var isIncomeHistoryViewPresented = false // Control the presentation of IncomeHistoryView
+    @State private var isExpenseHistoryViewPresented = false // Control the presentation of ExpenseHistoryView
     
     // Colors to display
-    let colors: [Color] = [.red, .green, .blue, .orange, .purple] // Replace with your desired colors
+    let colors: [Color] = [.green, .red] // Replace with your desired colors
     
     // Index to track the currently displayed color
     @State private var currentColorIndex: Int = 0
     
     init() {
-        print("Initial balance loaded:", balance)
-    }
+            print("Initial balance loaded:", balance)
+        }
     
     var body: some View {
         NavigationView {
@@ -25,31 +30,29 @@ struct MainView: View {
                     .padding()
                 
                 // Color Display
-                ZStack{
+                VStack{
                     Circle()
                         .fill(colors[currentColorIndex])
-                        .frame(width: 200, height: 200) // Use a fixed size circle
+                        .frame(width: 300, height: 300) // Use a fixed size circle
                         .transition(.scale)
-                        .animation(.easeInOut(duration: 0.3))
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.3)){
+                                if colors[currentColorIndex] == .green {
+                                    isIncomeHistoryViewPresented = true
+                                }else{
+                                    isExpenseHistoryViewPresented = true
+                                }
+                            }
+                        }
                     
-                    // Navigation Buttons
-                    HStack(spacing: 175) {
-                        // Previous Button
-                        Button(action: { showPreviousColor() }) {
-                            Image(systemName: "lessthan.circle")
-                                .font(.system(size: 40))
-                                .foregroundColor(.primary)
-                        }
-                        .padding()
-                        
-                        // Next Button
-                        Button(action: { showNextColor() }) {
-                            Image(systemName: "greaterthan.circle")
-                                .font(.system(size: 40))
-                                .foregroundColor(.primary)
-                        }
-                        .padding()
+                    
+                    // Navigation Button
+                    Button(action: { showNextColor() }) {
+                        Image(systemName: colors[currentColorIndex] == .green ? "plus.circle.fill" : "minus.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.primary)
                     }
+                    .padding()
                 }
                 
                 
@@ -84,8 +87,20 @@ struct MainView: View {
                     // Pass the balance and isPresented bindings to ExpenseView
                     ExpenseView(mainViewBalance: $balance, isPresented: $isExpenseViewPresented)
                 }
+                .sheet(isPresented: $isIncomeHistoryViewPresented){
+                    IncomeHistoryView(isPresented: $isIncomeHistoryViewPresented)
+                }.sheet(isPresented: $isExpenseHistoryViewPresented){
+                    ExpenseHistoryView(isPresented: $isExpenseHistoryViewPresented)
+                }
             }
             .navigationBarTitle("MyBudget", displayMode: .large)
+        }
+        .onAppear(){
+            incomeManager.loadIncomes()
+            expenseManager.loadExpenses()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            balance = UserDefaults.standard.double(forKey: "balance")
         }
     }
     
@@ -102,20 +117,12 @@ struct MainView: View {
     }
     
     private func showNextColor() {
-            if currentColorIndex < colors.count - 1 {
-                currentColorIndex += 1
-            } else {
-                currentColorIndex = 0 // Wrap to the first color
-            }
+        if currentColorIndex < colors.count - 1 {
+            currentColorIndex += 1
+        } else {
+            currentColorIndex = 0 // Wrap to the first color
         }
-        
-        private func showPreviousColor() {
-            if currentColorIndex > 0 {
-                currentColorIndex -= 1
-            } else {
-                currentColorIndex = colors.count - 1 // Wrap to the last color
-            }
-        }
+    }
 }
 
 #Preview {
