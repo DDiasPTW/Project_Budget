@@ -10,6 +10,15 @@ struct Expense: Identifiable,Codable{
 class ExpenseManager: ObservableObject {
     @Published var expenses: [Expense] = []
     
+    var totalExpense: Double {
+        return expenses.reduce(0) { $0 + $1.amount }
+    }
+
+    var expensesByCategory: [String: Double] {
+        return Dictionary(grouping: expenses, by: { $0.category })
+            .mapValues { $0.reduce(0) { $0 + $1.amount } }
+    }
+    
     // Function to add an expense item to the list
     func addExpense(name: String, category: String, amount: Double) {
         let newExpense = Expense(name: name, category: category, amount: amount)
@@ -52,13 +61,13 @@ struct ExpenseView: View {
     @EnvironmentObject var expenseManager: ExpenseManager
     
     @Binding var mainViewBalance: Double // Binding to update the balance in MainView
-    @Binding var isPresented: Bool // Binding to control the presentation of expenseView
+    @Binding var activeSheet: ActiveSheet? // Binding to control the presentation of expenseView
     
     @State private var expenseName = ""
     @State private var expenseAmount = ""
     
-    let expenseCategoryOptions = ["Social", "Food", "Work", "Health", "Entertainment", "Clothing", "Travel", "Other"]
-    @State private var selectedCategory = "Social" //Default category
+    let expenseCategoryOptions = ["Personal", "Food", "Work", "Health", "Entertainment", "Clothing", "Travel", "Bills" ,"Other"]
+    @State private var selectedCategory = "Personal" //Default category
     
     
     var body: some View {
@@ -106,7 +115,7 @@ struct ExpenseView: View {
             .navigationBarItems(
                 leading: Button(action: {
                     // Handle the action to go back to the MainView
-                    isPresented = false // Dismiss the expenseView
+                    activeSheet = nil // Dismiss the expenseView
                 }) {
                     Image(systemName: "arrow.left")
                         .foregroundColor(.blue)
@@ -127,16 +136,11 @@ struct ExpenseView: View {
             
             expenseManager.addExpense(name: expenseName, category: selectedCategory, amount: number)
         }
-        isPresented = false // Dismiss the expenseView
+        activeSheet = nil // Dismiss the expenseView
     }
 }
 
-
-
-
-
-
 #Preview {
-    ExpenseView(mainViewBalance: .constant(100.0), isPresented: .constant(true))
+    ExpenseView(mainViewBalance: .constant(100.0), activeSheet: .constant(.expenseView))
         .environmentObject(ExpenseManager())
 }

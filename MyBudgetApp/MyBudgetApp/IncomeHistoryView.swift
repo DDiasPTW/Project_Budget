@@ -2,12 +2,12 @@ import SwiftUI
 
 struct IncomeHistoryView: View {
     @EnvironmentObject var incomeManager: IncomeManager
-    @Binding var isPresented: Bool
+    @Binding var activeSheet: ActiveSheet?
     
     var body: some View {
         NavigationView {
             List {
-                ForEach(incomeManager.incomes) { income in
+                ForEach(incomeManager.incomes.reversed()) { income in
                     VStack(alignment: .leading) {
                         Text("\(income.name)")
                             .fontWeight(.bold)
@@ -17,13 +17,16 @@ struct IncomeHistoryView: View {
                                 .fontWeight(.heavy)
                     }
                 }
-                .onDelete(perform: incomeManager.removeIncome) // This enables swipe-to-delete
+                .onDelete { offsets in
+                    let reversedOffsets = offsets.map { incomeManager.incomes.count - 1 - $0 }
+                    incomeManager.removeIncome(at: IndexSet(reversedOffsets))
+                }
             }
             .navigationBarTitle("Income History")
             .navigationBarItems(
                 leading: Button(action: {
                     // Handle the action to go back to the MainView
-                    isPresented = false // Dismiss the IncomeView
+                    activeSheet = nil // Dismiss the IncomeView
                 }) {
                     Image(systemName: "arrow.left")
                         .foregroundColor(.blue)
@@ -52,6 +55,6 @@ struct IncomeHistoryView: View {
 }
 
 #Preview {
-    IncomeHistoryView(isPresented: .constant(true))
+    IncomeHistoryView(activeSheet: .constant(.incomeHistoryView))
         .environmentObject(IncomeManager())
 }

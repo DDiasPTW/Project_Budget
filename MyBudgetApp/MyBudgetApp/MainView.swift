@@ -1,5 +1,13 @@
 import SwiftUI
 
+enum ActiveSheet: Identifiable {
+    case incomeView, expenseView, incomeHistoryView, expenseHistoryView, beginningBudgetView
+    
+    var id: Int {
+        hashValue
+    }
+}
+
 struct MainView: View {
     @EnvironmentObject var incomeManager: IncomeManager
     @EnvironmentObject var expenseManager: ExpenseManager
@@ -11,46 +19,45 @@ struct MainView: View {
     @State private var isExpenseViewPresented = false // Control the presentation of ExpenseView
     @State private var isIncomeHistoryViewPresented = false // Control the presentation of IncomeHistoryView
     @State private var isExpenseHistoryViewPresented = false // Control the presentation of ExpenseHistoryView
+    @State private var showBeginningBudgetView: Bool = !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") //Control if it's the first time the user is opening the app
+    @State private var showingIncomeChart: Bool = true
     
-    // Colors to display
-    let colors: [Color] = [.green, .red] // Replace with your desired colors
+    @State private var activeSheet: ActiveSheet?
     
-    // Index to track the currently displayed color
-    @State private var currentColorIndex: Int = 0
+    @State private var cumulativeAngle: Double = 0.0
     
     init() {
-            print("Initial balance loaded:", balance)
-        }
+        print("Initial balance loaded:", balance)
+    }
     
     var body: some View {
         NavigationView {
             VStack {
-                Text(String(format: "%.2f €", balance)) // Display the balance with currency
+                Text(formatAsCurrency(amount: balance))
                     .font(.largeTitle)
                     .padding()
                 
-                // Color Display
-                VStack{
-                    Circle()
-                        .fill(colors[currentColorIndex])
-                        .frame(width: 300, height: 300) // Use a fixed size circle
-                        .transition(.scale)
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.3)){
-                                if colors[currentColorIndex] == .green {
-                                    isIncomeHistoryViewPresented = true
-                                }else{
-                                    isExpenseHistoryViewPresented = true
-                                }
+                VStack {
+                    if showingIncomeChart {
+                        PieChartIncomeView()
+                            .frame(width: 300, height: 300)
+                            .onTapGesture {
+                                activeSheet = .incomeHistoryView
                             }
-                        }
+                    } else {
+                        PieChartExpenseView()
+                            .frame(width: 300, height: 300)
+                            .onTapGesture {
+                                activeSheet = .expenseHistoryView
+                            }
+                    }
                     
-                    
-                    // Navigation Button
-                    Button(action: { showNextColor() }) {
-                        Image(systemName: colors[currentColorIndex] == .green ? "plus.circle.fill" : "minus.circle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.primary)
+                    Button(action: {
+                        showingIncomeChart.toggle()
+                    }) {
+                        Image(systemName: showingIncomeChart ? "plus.circle.fill" : "minus.circle")
+                            .font(.system(size: 30))
+                            .foregroundColor(.accentColor)
                     }
                     .padding()
                 }
@@ -60,42 +67,45 @@ struct MainView: View {
                 
                 HStack(spacing: 100) {
                     // Expense View Button
-                    Button(action: { isExpenseViewPresented = true }) {
+                    Button(action: { activeSheet = .expenseView }) {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: 60))
-                            .foregroundColor(.red)
+                            .foregroundColor(.primary)
                             .frame(width: 60, height: 60)
-                            .background(Circle().foregroundColor(.white))
+                            .clipShape(Circle())
                     }
                     .padding()
                     
                     // Income View Button
-                    Button(action: { isIncomeViewPresented = true }) {
+                    Button(action: { activeSheet = .incomeView }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 60))
-                            .foregroundColor(.green)
+                            .foregroundColor(.primary)
                             .frame(width: 60, height: 60)
-                            .background(Circle().foregroundColor(.white))
+                            .clipShape(Circle())
                     }
                     .padding()
                 }
-                .sheet(isPresented: $isIncomeViewPresented) {
-                    // Pass the balance and isPresented bindings to IncomeView
-                    IncomeView(mainViewBalance: $balance, isPresented: $isIncomeViewPresented)
-                }
-                .sheet(isPresented: $isExpenseViewPresented) {
-                    // Pass the balance and isPresented bindings to ExpenseView
-                    ExpenseView(mainViewBalance: $balance, isPresented: $isExpenseViewPresented)
-                }
-                .sheet(isPresented: $isIncomeHistoryViewPresented){
-                    IncomeHistoryView(isPresented: $isIncomeHistoryViewPresented)
-                }.sheet(isPresented: $isExpenseHistoryViewPresented){
-                    ExpenseHistoryView(isPresented: $isExpenseHistoryViewPresented)
+                .sheet(item: $activeSheet) { item in
+                    switch item {
+                    case .incomeView:
+                        IncomeView(mainViewBalance: $balance, activeSheet: $activeSheet)
+                    case .expenseView:
+                        ExpenseView(mainViewBalance: $balance, activeSheet: $activeSheet)
+                    case .incomeHistoryView:
+                        IncomeHistoryView(activeSheet: $activeSheet)
+                    case .expenseHistoryView:
+                        ExpenseHistoryView(activeSheet: $activeSheet)
+                    case .beginningBudgetView:
+                        BeginningBudgetView(mainViewBalance: $balance, isPresented: $showBeginningBudgetView)
+                            .environmentObject(incomeManager)
+                    }
                 }
             }
             .navigationBarTitle("MyBudget", displayMode: .large)
         }
         .onAppear(){
+            cumulativeAngle = 0.0
             incomeManager.loadIncomes()
             expenseManager.loadExpenses()
         }
@@ -116,15 +126,71 @@ struct MainView: View {
         )
     }
     
-    private func showNextColor() {
-        if currentColorIndex < colors.count - 1 {
-            currentColorIndex += 1
-        } else {
-            currentColorIndex = 0 // Wrap to the first color
+    func startAngle(for percentage: Double) -> Double {
+        let start = cumulativeAngle
+        cumulativeAngle += 360 * percentage
+        return start
+    }
+    
+    func endAngle(for percentage: Double) -> Double {
+        return cumulativeAngle
+    }
+    
+    func colorIncomes(for category: String) -> Color {
+        switch category {
+        case "Work":
+            return .green
+        case "Gifts":
+            return .blue
+        case "Insurance":
+            return .orange
+        default:
+            return .pink
         }
+    }
+    
+    func formatAsCurrency(amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = ""
+        formatter.locale = Locale.current
+        
+        // Get the formatted string without the currency symbol
+        let formattedAmount = formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
+        
+        // Append the currency symbol at the end
+        if let currencySymbol = Locale.current.currencySymbol {
+            return "\(formattedAmount)\(currencySymbol)"
+        } else {
+            return formattedAmount
+        }
+    }
+}
+
+struct PieSlice: Shape {
+    var startAngle: Angle
+    var endAngle: Angle
+    
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let start = CGPoint(
+            x: center.x + radius * cos(CGFloat(startAngle.radians)),
+            y: center.y + radius * sin(CGFloat(startAngle.radians))
+        )
+        
+        var path = Path()
+        path.move(to: center)
+        path.addLine(to: start)
+        path.addArc(center: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        path.addLine(to: center)
+        
+        return path
     }
 }
 
 #Preview {
     MainView()
+        .environmentObject(IncomeManager())
+        .environmentObject(ExpenseManager())
 }

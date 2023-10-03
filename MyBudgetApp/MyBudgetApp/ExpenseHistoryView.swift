@@ -2,12 +2,12 @@ import SwiftUI
 
 struct ExpenseHistoryView: View {
     @EnvironmentObject var expenseManager: ExpenseManager
-    @Binding var isPresented: Bool
+    @Binding var activeSheet: ActiveSheet?
     
     var body: some View {
         NavigationView {
                     List {
-                        ForEach(expenseManager.expenses) { expense in
+                        ForEach(expenseManager.expenses.reversed()) { expense in
                             VStack(alignment: .leading) {
                                 Text("\(expense.name)")
                                     .fontWeight(.bold)
@@ -17,13 +17,16 @@ struct ExpenseHistoryView: View {
                                         .fontWeight(.heavy)
                             }
                         }
-                        .onDelete(perform: expenseManager.removeExpense) // This enables swipe-to-delete
+                        .onDelete { offsets in
+                            let reversedOffsets = offsets.map { expenseManager.expenses.count - 1 - $0 }
+                            expenseManager.removeExpense(at: IndexSet(reversedOffsets))
+                        }
                     }
                     .navigationBarTitle("Expense History")
                     .navigationBarItems(
                         leading: Button(action: {
                             // Handle the action to go back to the MainView
-                            isPresented = false // Dismiss the ExpenseView
+                            activeSheet = nil // Dismiss the ExpenseView
                         }) {
                             Image(systemName: "arrow.left")
                                 .foregroundColor(.blue)
@@ -53,6 +56,6 @@ struct ExpenseHistoryView: View {
 
 
 #Preview {
-    ExpenseHistoryView(isPresented: .constant(true))
+    ExpenseHistoryView(activeSheet: .constant(.expenseHistoryView))
         .environmentObject(ExpenseManager())
 }

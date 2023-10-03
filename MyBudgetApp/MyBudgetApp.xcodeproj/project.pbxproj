@@ -8,6 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		CF0B90EE2AC72E15004BD7B3 /* ExpenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0B90ED2AC72E15004BD7B3 /* ExpenseView.swift */; };
+		CF9ADA762ACC06440038741A /* BeginningBudgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9ADA752ACC06440038741A /* BeginningBudgetView.swift */; };
+		CF9ADA782ACC0DB70038741A /* PieSliceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9ADA772ACC0DB70038741A /* PieSliceView.swift */; };
+		CF9ADA7A2ACC0DEA0038741A /* PieChartIncomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9ADA792ACC0DEA0038741A /* PieChartIncomeView.swift */; };
+		CF9ADA7C2ACC16830038741A /* PieChartExpenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9ADA7B2ACC16830038741A /* PieChartExpenseView.swift */; };
 		CFA9BE5F2AC32BF9007ACDD2 /* MyBudgetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA9BE5E2AC32BF9007ACDD2 /* MyBudgetApp.swift */; };
 		CFA9BE612AC32BF9007ACDD2 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA9BE602AC32BF9007ACDD2 /* MainView.swift */; };
 		CFA9BE632AC32BFA007ACDD2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CFA9BE622AC32BFA007ACDD2 /* Assets.xcassets */; };
@@ -19,6 +23,10 @@
 
 /* Begin PBXFileReference section */
 		CF0B90ED2AC72E15004BD7B3 /* ExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseView.swift; sourceTree = SOURCE_ROOT; };
+		CF9ADA752ACC06440038741A /* BeginningBudgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeginningBudgetView.swift; sourceTree = "<group>"; };
+		CF9ADA772ACC0DB70038741A /* PieSliceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieSliceView.swift; sourceTree = "<group>"; };
+		CF9ADA792ACC0DEA0038741A /* PieChartIncomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieChartIncomeView.swift; sourceTree = "<group>"; };
+		CF9ADA7B2ACC16830038741A /* PieChartExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieChartExpenseView.swift; sourceTree = "<group>"; };
 		CFA9BE5B2AC32BF9007ACDD2 /* MyBudgetApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyBudgetApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFA9BE5E2AC32BF9007ACDD2 /* MyBudgetApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyBudgetApp.swift; sourceTree = "<group>"; };
 		CFA9BE602AC32BF9007ACDD2 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -59,10 +67,14 @@
 		CFA9BE5D2AC32BF9007ACDD2 /* MyBudgetApp */ = {
 			isa = PBXGroup;
 			children = (
+				CF9ADA752ACC06440038741A /* BeginningBudgetView.swift */,
 				CF0B90ED2AC72E15004BD7B3 /* ExpenseView.swift */,
 				CFB7D2182AC71B9F00E1A96C /* IncomeView.swift */,
 				CFA9BE5E2AC32BF9007ACDD2 /* MyBudgetApp.swift */,
 				CFA9BE602AC32BF9007ACDD2 /* MainView.swift */,
+				CF9ADA7B2ACC16830038741A /* PieChartExpenseView.swift */,
+				CF9ADA772ACC0DB70038741A /* PieSliceView.swift */,
+				CF9ADA792ACC0DEA0038741A /* PieChartIncomeView.swift */,
 				CFDFA95F2ACAC87D00550275 /* ExpenseHistoryView.swift */,
 				CFDFA95D2ACAC86700550275 /* IncomeHistoryView.swift */,
 				CFA9BE622AC32BFA007ACDD2 /* Assets.xcassets */,
@@ -149,11 +161,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CF9ADA7A2ACC0DEA0038741A /* PieChartIncomeView.swift in Sources */,
+				CF9ADA7C2ACC16830038741A /* PieChartExpenseView.swift in Sources */,
 				CFDFA95E2ACAC86700550275 /* IncomeHistoryView.swift in Sources */,
+				CF9ADA762ACC06440038741A /* BeginningBudgetView.swift in Sources */,
 				CFA9BE612AC32BF9007ACDD2 /* MainView.swift in Sources */,
 				CFB7D2192AC71B9F00E1A96C /* IncomeView.swift in Sources */,
 				CFA9BE5F2AC32BF9007ACDD2 /* MyBudgetApp.swift in Sources */,
 				CFDFA9602ACAC87D00550275 /* ExpenseHistoryView.swift in Sources */,
+				CF9ADA782ACC0DB70038741A /* PieSliceView.swift in Sources */,
 				CF0B90EE2AC72E15004BD7B3 /* ExpenseView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

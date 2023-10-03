@@ -10,6 +10,15 @@ struct Income: Identifiable,Codable{
 class IncomeManager: ObservableObject {
     @Published var incomes: [Income] = []
     
+    var totalIncome: Double {
+        return incomes.reduce(0) { $0 + $1.amount }
+    }
+
+    var incomesByCategory: [String: Double] {
+        return Dictionary(grouping: incomes, by: { $0.category })
+            .mapValues { $0.reduce(0) { $0 + $1.amount } }
+    }
+    
     // Function to add an income item to the list
     func addIncome(name: String, category: String, amount: Double) {
         let newIncome = Income(name: name, category: category, amount: amount)
@@ -52,13 +61,13 @@ struct IncomeView: View {
     @EnvironmentObject var incomeManager: IncomeManager
     
     @Binding var mainViewBalance: Double // Binding to update the balance in MainView
-    @Binding var isPresented: Bool // Binding to control the presentation of IncomeView
+    @Binding var activeSheet: ActiveSheet? //Binding to control the presentation of IncomeView
     
     @State private var incomeName = ""
     @State private var incomeAmount = ""
     
-    let incomeCategoryOptions = ["Social", "Food", "Work", "Health", "Entertainment", "Clothing", "Travel", "Other"]
-    @State private var selectedCategory = "Social" //Default category
+    let incomeCategoryOptions = ["Work", "Gifts", "Insurance", "Other"]
+    @State private var selectedCategory = "Work" //Default category
     
     
     var body: some View {
@@ -87,7 +96,7 @@ struct IncomeView: View {
                 .navigationBarItems(
                     leading: Button(action: {
                         // Handle the action to go back to the MainView
-                        isPresented = false // Dismiss the IncomeView
+                        activeSheet = nil // Dismiss the IncomeView
                     }) {
                         Image(systemName: "arrow.left")
                             .foregroundColor(.blue)
@@ -124,11 +133,11 @@ struct IncomeView: View {
             
             incomeManager.addIncome(name: incomeName, category: selectedCategory, amount: number)
         }
-        isPresented = false // Dismiss the IncomeView
+        activeSheet = nil // Dismiss the IncomeView
     }
 }
 
 #Preview {
-    IncomeView(mainViewBalance: .constant(100.0), isPresented: .constant(true))
+    IncomeView(mainViewBalance: .constant(100.0), activeSheet: .constant(.incomeView))
         .environmentObject(IncomeManager())
 }
