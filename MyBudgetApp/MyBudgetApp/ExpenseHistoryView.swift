@@ -6,8 +6,8 @@ struct ExpenseHistoryView: View {
     
     var body: some View {
         NavigationView {
-                    List {
-                        ForEach(expenseManager.expenses.reversed()) { expense in
+            List{
+                ForEach(expenseManager.expenses.filter { !$0.isArchived }.reversed()) { expense in
                             VStack(alignment: .leading) {
                                 Text("\(expense.name)")
                                     .fontWeight(.bold)
@@ -15,6 +15,11 @@ struct ExpenseHistoryView: View {
                                 Text("Amount: ")
                                     + Text("- \(formatAsCurrency(amount: expense.amount))")
                                         .fontWeight(.heavy)
+                                if expense.frequency == "Other", let year = expense.customYear, let month = expense.customMonth, let day = expense.customDay {
+                                    Text("Frequency: Every \(year) year(s), \(month) month(s), \(day) day(s)")
+                                } else {
+                                    Text("Frequency: \(expense.frequency)")
+                                }
                             }
                         }
                         .onDelete { offsets in
@@ -22,7 +27,7 @@ struct ExpenseHistoryView: View {
                             expenseManager.removeExpense(at: IndexSet(reversedOffsets))
                         }
                     }
-                    .navigationBarTitle("Expense History")
+                    .navigationBarTitle("Expense History") ///CHANGE TO Expense history for the month of...
                     .navigationBarItems(
                         leading: Button(action: {
                             // Handle the action to go back to the MainView

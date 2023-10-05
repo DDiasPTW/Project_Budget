@@ -4,54 +4,51 @@ struct BeginningBudgetView: View {
     @EnvironmentObject var incomeManager: IncomeManager
     
     @Binding var mainViewBalance: Double // Binding to update the balance in MainView
-    @Binding var isPresented: Bool // Binding to control the presentation of IncomeView
+    @Binding var activeSheet: ActiveSheet?
     
-    @State private var incomeName = ""
+    @State private var incomeName = "Budget for the month"
     @State private var incomeAmount = ""
     
-    let incomeCategoryOptions = ["Work", "Gifts", "Insurance", "Other"]
-    @State private var selectedCategory = "Work" //Default category
+    //let incomeCategoryOptions = ["Beginning Budget"]
+    let selectedCategory = "Monthly budget" //Default category
+    let selectedFrequency = "Every month"
+    
     
     
     var body: some View {
         NavigationView {
-            VStack{
-                List{
-                    TextField("Income Name", text: $incomeName)
-                        .keyboardType(.default)
-                        .padding()
-                    
-                    TextField("Income Amount", text: $incomeAmount)
-                        .padding()
-                        .keyboardType(.decimalPad) // Use .decimalPad for decimal input
-                    
-                    Section{
-                        Picker("Category", selection: $selectedCategory) {
-                            ForEach(incomeCategoryOptions, id: \.self) { category in
-                                Text(category)
-                            }
-                        }
-                    }
-                }
-                .navigationTitle("ADD BUDGET")
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarBackButtonHidden(true)
+            VStack(alignment: .center){
                 
                 Spacer()
                 
-                Button(action: {
-                    addIncome()
-                })
+                TextField("1234.56*", text: $incomeAmount)
+                    .multilineTextAlignment(.center)
+                    //.border(Color.black)
+                    .padding(.horizontal, 15.0)
+                    .keyboardType(.decimalPad) // Use .decimalPad for decimal input
+                    .font(.system(size: 75))
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button(action: { addIncome() })
                 {
-                    Circle()
-                        .frame(width: 60, height: 60)
-                        .foregroundColor(incomeName.isEmpty || incomeAmount.isEmpty ? .gray : .green)
-                        .overlay(Image(systemName: "plus").font(.title).foregroundColor(.white))
+                    Image(systemName: "plus.circle.fill")
+                        //.font(.largeTitle)
+                        .font(.system(size: 60))
+                        .foregroundColor(incomeAmount.isEmpty ? .gray : .green)
                         .background(Color.clear)
                 }
-                .disabled(incomeName.isEmpty || incomeAmount.isEmpty) // Disable the button if fields are empty
+                .disabled(incomeAmount.isEmpty) // Disable the button if fields are empty
                 .padding()
+                
+                Text("*This budget will reset every 1st of the month, you can modify your budget at any time")
+                    .fontWeight(.thin)
+                    .multilineTextAlignment(.center)
             }
+            .navigationTitle("ADD MONTHLY BUDGET")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
         }
     }
     
@@ -59,19 +56,25 @@ struct BeginningBudgetView: View {
         // Preprocess the input to replace commas with periods
         // Validate and update balance
         if let number = Double(incomeAmount.replacingOccurrences(of: ",", with: ".")) {
-            mainViewBalance += number
+            mainViewBalance = number
+            
+            let currentDate = Date()
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MMMM"
+            let monthName = dateFormatter.string(from: currentDate)
             
             // Update UserDefaults balance value here
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
             UserDefaults.standard.synchronize() // Force immediate synchronization
-            incomeManager.addIncome(name: incomeName, category: selectedCategory, amount: number)
+            let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: number, frequency: "Every month", customYear: nil, customMonth: nil, customDay: nil)
+            incomeManager.addIncome(newIncome)
         }
-        isPresented = false // Dismiss the IncomeView
+        activeSheet = nil // Dismiss the IncomeView
     }
 }
 
 #Preview {
-    BeginningBudgetView(mainViewBalance: .constant(100.0), isPresented: .constant(true))
+    BeginningBudgetView(mainViewBalance: .constant(100.0), activeSheet: .constant(.beginningBudgetView))
         .environmentObject(IncomeManager())
 }

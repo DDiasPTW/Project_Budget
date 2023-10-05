@@ -19,22 +19,18 @@ struct MainView: View {
     @State private var isExpenseViewPresented = false // Control the presentation of ExpenseView
     @State private var isIncomeHistoryViewPresented = false // Control the presentation of IncomeHistoryView
     @State private var isExpenseHistoryViewPresented = false // Control the presentation of ExpenseHistoryView
-    @State private var showBeginningBudgetView: Bool = !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") //Control if it's the first time the user is opening the app
     @State private var showingIncomeChart: Bool = true
     
     @State private var activeSheet: ActiveSheet?
     
     @State private var cumulativeAngle: Double = 0.0
     
-    init() {
-        print("Initial balance loaded:", balance)
-    }
-    
     var body: some View {
         NavigationView {
             VStack {
                 Text(formatAsCurrency(amount: balance))
                     .font(.largeTitle)
+                    .foregroundColor(balance < 0 ? Color.red : Color.black)
                     .padding()
                 
                 VStack {
@@ -44,12 +40,14 @@ struct MainView: View {
                             .onTapGesture {
                                 activeSheet = .incomeHistoryView
                             }
+                            .environmentObject(incomeManager)
                     } else {
                         PieChartExpenseView()
                             .frame(width: 300, height: 300)
                             .onTapGesture {
                                 activeSheet = .expenseHistoryView
                             }
+                            .environmentObject(expenseManager)
                     }
                     
                     Button(action: {
@@ -65,7 +63,7 @@ struct MainView: View {
                 
                 Spacer()
                 
-                HStack(spacing: 100) {
+                HStack(spacing: 40) {
                     // Expense View Button
                     Button(action: { activeSheet = .expenseView }) {
                         Image(systemName: "minus.circle.fill")
@@ -75,6 +73,14 @@ struct MainView: View {
                             .clipShape(Circle())
                     }
                     .padding()
+                    
+                    Button(action: { activeSheet = .beginningBudgetView }) {
+                        Image(systemName: "house.circle")
+                            .font(.system(size: 60))
+                            .foregroundColor(.primary)
+                            .frame(width: 60, height: 60)
+                            .clipShape(Circle())
+                    }
                     
                     // Income View Button
                     Button(action: { activeSheet = .incomeView }) {
@@ -97,7 +103,7 @@ struct MainView: View {
                     case .expenseHistoryView:
                         ExpenseHistoryView(activeSheet: $activeSheet)
                     case .beginningBudgetView:
-                        BeginningBudgetView(mainViewBalance: $balance, isPresented: $showBeginningBudgetView)
+                        BeginningBudgetView(mainViewBalance: $balance, activeSheet: $activeSheet)
                             .environmentObject(incomeManager)
                     }
                 }
@@ -108,13 +114,19 @@ struct MainView: View {
             cumulativeAngle = 0.0
             incomeManager.loadIncomes()
             expenseManager.loadExpenses()
+            
+            checkAndResetBalance()
+            
+            if !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") {
+                activeSheet = .beginningBudgetView //Control the presentation of the beginningBudgetView
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             balance = UserDefaults.standard.double(forKey: "balance")
         }
     }
     
-    // Update the balance in UserDefaults when it changes
+    /// Update the balance in UserDefaults when it changes
     private var balanceBinding: Binding<Double> {
         Binding<Double>(
             get: { self.balance },
@@ -126,6 +138,74 @@ struct MainView: View {
         )
     }
     
+    ///Reset the monthly budget every 1st of the month
+    
+    func getLatestMonthlyBudget() -> Double? {
+        for income in incomeManager.incomes.reversed() {
+            if income.category == "Monthly budget" {
+                return income.amount
+            }
+        }
+        return nil
+    }
+    
+    func checkAndResetBalance() {
+        let currentDate = Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMMM"
+        let monthName = dateFormatter.string(from: currentDate)
+        let calendar = Calendar.current
+
+        let lastOpenedDate = UserDefaults.standard.object(forKey: "lastOpenedDate") as? Date ?? Date()
+        let lastOpenedComponents = calendar.dateComponents([.year, .month], from: lastOpenedDate)
+        let currentComponents = calendar.dateComponents([.year, .month], from: currentDate)
+
+       print("Last opened month: \(String(describing: lastOpenedComponents.month))")
+       print("Current month: \(String(describing: currentComponents.month))")
+
+        if lastOpenedComponents.month != currentComponents.month {
+            print("Month has changed since last opened.")
+            
+            let lastResetMonth = UserDefaults.standard.integer(forKey: "lastResetMonth")
+            print("Last reset month: \(lastResetMonth)")
+            let currentMonth = calendar.component(.month, from: currentDate)
+
+            if lastResetMonth != currentMonth {
+                print("Resetting balance for the new month.")
+                if let monthlyBudget = getLatestMonthlyBudget() {
+                    balance = monthlyBudget
+                    UserDefaults.standard.set(currentMonth, forKey: "lastResetMonth")
+                    
+                    UserDefaults.standard.set(balance, forKey: "balance")
+                    UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+                    UserDefaults.standard.synchronize()
+                    
+                    // Archive all current incomes and expenses
+                    for index in incomeManager.incomes.indices {
+                        incomeManager.incomes[index].isArchived = true
+                    }
+                    incomeManager.incomes.removeAll()
+
+                    for index in expenseManager.expenses.indices {
+                        expenseManager.expenses[index].isArchived = true
+                    }
+
+                    // Save the updated incomes and expenses
+                    incomeManager.saveIncomes()
+                    expenseManager.saveExpenses()
+                    
+                    
+                    let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: balance, frequency: "One-time", customYear: nil, customMonth: nil, customDay: nil)
+                    incomeManager.addIncome(newIncome)
+                }
+            }
+        }
+
+        UserDefaults.standard.set(currentDate, forKey: "lastOpenedDate")
+    }
+    
+    ///Pie chart
+    
     func startAngle(for percentage: Double) -> Double {
         let start = cumulativeAngle
         cumulativeAngle += 360 * percentage
@@ -134,19 +214,6 @@ struct MainView: View {
     
     func endAngle(for percentage: Double) -> Double {
         return cumulativeAngle
-    }
-    
-    func colorIncomes(for category: String) -> Color {
-        switch category {
-        case "Work":
-            return .green
-        case "Gifts":
-            return .blue
-        case "Insurance":
-            return .orange
-        default:
-            return .pink
-        }
     }
     
     func formatAsCurrency(amount: Double) -> String {

@@ -52,16 +52,14 @@ struct PieChartExpenseView: View {
             return .expense3
         case "Health":
             return .expense4
-        case "Entertainment":
+        case "Gifts":
             return .expense5
-        case "Clothing":
-            return .expense6
         case "Travel":
-            return .expense7
+            return .expense6
         case "Bills":
-            return .expense8
+            return .expense7
         default:
-            return .expense9
+            return .expense8
         }
     }
 }

@@ -40,13 +40,13 @@ struct PieChartIncomeView: View {
     func colorIncomes(for category: String) -> Color {
         switch category {
         case "Work":
-            return .income1
-        case "Gifts":
             return .income2
-        case "Insurance":
+        case "Gifts":
             return .income3
-        default:
+        case "Other":
             return .income4
+        default:
+            return .income1
         }
     }
 }

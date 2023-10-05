@@ -5,6 +5,11 @@ struct Expense: Identifiable,Codable{
     var name: String
     var category: String
     var amount: Double
+    var frequency: String
+    var customYear: Int?
+    var customMonth: Int?
+    var customDay: Int?
+    var isArchived: Bool = false
 }
 
 class ExpenseManager: ObservableObject {
@@ -13,18 +18,21 @@ class ExpenseManager: ObservableObject {
     var totalExpense: Double {
         return expenses.reduce(0) { $0 + $1.amount }
     }
-
+    
     var expensesByCategory: [String: Double] {
-        return Dictionary(grouping: expenses, by: { $0.category })
+        return Dictionary(grouping: expenses.filter { !$0.isArchived }, by: { $0.category })
             .mapValues { $0.reduce(0) { $0 + $1.amount } }
     }
     
     // Function to add an expense item to the list
-    func addExpense(name: String, category: String, amount: Double) {
-        let newExpense = Expense(name: name, category: category, amount: amount)
+    func addExpense(name: String, category: String, amount: Double, frequency: String, customYear: Int? = nil, customMonth: Int? = nil, customDay: Int? = nil) {
+        let newExpense = Expense(name: name, category: category, amount: amount, frequency: frequency, customYear: customYear, customMonth: customMonth, customDay: customDay)
+        
         expenses.append(newExpense)
+        
         saveExpenses()
     }
+    
     
     // Function to save the expenses to UserDefaults
     func saveExpenses() {
@@ -66,8 +74,16 @@ struct ExpenseView: View {
     @State private var expenseName = ""
     @State private var expenseAmount = ""
     
-    let expenseCategoryOptions = ["Personal", "Food", "Work", "Health", "Entertainment", "Clothing", "Travel", "Bills" ,"Other"]
+    ///Categories
+    let expenseCategoryOptions = ["Personal", "Food", "Work", "Health", "Travel", "Bills" ,"Gifts" ,"Other"]
     @State private var selectedCategory = "Personal" //Default category
+    
+    ///Frequency of expense
+    let frequencyOptions = ["One-time", "Every day", "Every week", "Every month", "Every year", "Other"]
+    @State private var selectedFrequency = "One-time" //Default frequency
+    @State private var customYear: Int = 0
+    @State private var customMonth: Int = 0
+    @State private var customDay: Int = 0
     
     
     var body: some View {
@@ -91,8 +107,43 @@ struct ExpenseView: View {
                             }
                         }
                     }
+                    
+                    Section{
+                        Picker("Frequency", selection: $selectedFrequency){
+                            ForEach(frequencyOptions, id: \.self){ frequency in
+                                Text(frequency)
+                            }
+                        }
+                        
+                        if selectedFrequency == "Other" {
+                            HStack {
+                                Picker("", selection: $customYear) {
+                                    ForEach(0..<21) { year in
+                                        Text("\(year) year\(year != 1 ? "s" : "")")
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .frame(width: 80)
+                                
+                                Picker("", selection: $customMonth) {
+                                    ForEach(0..<12) { month in
+                                        Text("\(month) month\(month != 1 ? "s" : "")")
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .frame(width: 100)
+                                
+                                Picker("", selection: $customDay) {
+                                    ForEach(0..<31) { day in
+                                        Text("\(day) day\(day != 1 ? "s" : "")")
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .frame(width: 80)
+                            }
+                        }
+                    }
                 }
-                
                 
                 Spacer()
                 
@@ -134,10 +185,12 @@ struct ExpenseView: View {
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.synchronize() // Force immediate synchronization
             
-            expenseManager.addExpense(name: expenseName, category: selectedCategory, amount: number)
+            expenseManager.addExpense(name: expenseName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
         }
         activeSheet = nil // Dismiss the expenseView
+        
     }
+    
 }
 
 #Preview {

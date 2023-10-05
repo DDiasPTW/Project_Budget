@@ -5,6 +5,11 @@ struct Income: Identifiable,Codable{
     var name: String
     var category: String
     var amount: Double
+    var frequency: String
+    var customYear: Int?
+    var customMonth: Int?
+    var customDay: Int?
+    var isArchived: Bool = false
 }
 
 class IncomeManager: ObservableObject {
@@ -13,16 +18,16 @@ class IncomeManager: ObservableObject {
     var totalIncome: Double {
         return incomes.reduce(0) { $0 + $1.amount }
     }
-
+    
     var incomesByCategory: [String: Double] {
-        return Dictionary(grouping: incomes, by: { $0.category })
+        return Dictionary(grouping: incomes.filter { !$0.isArchived }, by: { $0.category })
             .mapValues { $0.reduce(0) { $0 + $1.amount } }
     }
+
     
     // Function to add an income item to the list
-    func addIncome(name: String, category: String, amount: Double) {
-        let newIncome = Income(name: name, category: category, amount: amount)
-        incomes.append(newIncome)
+    func addIncome(_ income: Income) {
+        incomes.append(income)
         saveIncomes()
     }
     
@@ -66,8 +71,16 @@ struct IncomeView: View {
     @State private var incomeName = ""
     @State private var incomeAmount = ""
     
-    let incomeCategoryOptions = ["Work", "Gifts", "Insurance", "Other"]
+    ///Categories
+    let incomeCategoryOptions = ["Work", "Gifts", "Other"]
     @State private var selectedCategory = "Work" //Default category
+    
+    ///Frequency
+    let frequencyOptions = ["One-time", "Every day", "Every week", "Every month", "Every year", "Other"]
+    @State private var selectedFrequency = "One-time" //Default frequency
+    @State private var customYear: Int = 0
+    @State private var customMonth: Int = 0
+    @State private var customDay: Int = 0
     
     
     var body: some View {
@@ -89,6 +102,43 @@ struct IncomeView: View {
                             }
                         }
                     }
+                    
+                    Section {
+                        Picker("Frequency", selection: $selectedFrequency) {
+                            ForEach(frequencyOptions, id: \.self) { frequency in
+                                Text(frequency)
+                            }
+                        }
+                        
+                        if selectedFrequency == "Other" {
+                            HStack {
+                                Picker("", selection: $customYear) {
+                                    ForEach(0..<21) { year in
+                                        Text("\(year) year\(year != 1 ? "s" : "")")
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .frame(width: 80)
+                                
+                                Picker("", selection: $customMonth) {
+                                    ForEach(0..<12) { month in
+                                        Text("\(month) month\(month != 1 ? "s" : "")")
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .frame(width: 100)
+                                
+                                Picker("", selection: $customDay) {
+                                    ForEach(0..<31) { day in
+                                        Text("\(day) day\(day != 1 ? "s" : "")")
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .frame(width: 80)
+                            }
+                        }
+                    }
+                    
                 }
                 .navigationTitle("Add income")
                 .navigationBarTitleDisplayMode(.inline)
@@ -121,9 +171,7 @@ struct IncomeView: View {
         }
     }
     
-    private func addIncome(){
-        // Preprocess the input to replace commas with periods
-        // Validate and update balance
+    private func addIncome() {
         if let number = Double(incomeAmount.replacingOccurrences(of: ",", with: ".")) {
             mainViewBalance += number
             
@@ -131,10 +179,13 @@ struct IncomeView: View {
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.synchronize() // Force immediate synchronization
             
-            incomeManager.addIncome(name: incomeName, category: selectedCategory, amount: number)
+            let newIncome = Income(name: incomeName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            
+            incomeManager.addIncome(newIncome)
+            activeSheet = nil // Dismiss the IncomeView
         }
-        activeSheet = nil // Dismiss the IncomeView
     }
+
 }
 
 #Preview {
