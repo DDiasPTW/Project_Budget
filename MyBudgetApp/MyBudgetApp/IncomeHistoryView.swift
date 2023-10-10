@@ -5,6 +5,12 @@ struct IncomeHistoryView: View {
     @EnvironmentObject var incomeManager: IncomeManager
     @Binding var activeSheet: ActiveSheet?
     
+    var currentMonthName: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMMM"
+        return dateFormatter.string(from: Date())
+    }
+    
     var body: some View {
         NavigationView {
             List{
@@ -23,12 +29,21 @@ struct IncomeHistoryView: View {
                         }
                     }
                 }
-                .onDelete(perform: deleteIncome)
+                .onDelete { offsets in
+                    let incomesToDelete = offsets.map { incomeManager.incomes.count - 1 - $0 }
+                    .compactMap { index -> Income? in
+                        let income = incomeManager.incomes[index]
+                        return income.category != "Monthly budget" ? income : nil
+                    }
+                    
+                    incomeManager.removeIncome(incomesToRemove: incomesToDelete)
+                }
+
+
             }
-            .navigationBarTitle("Income History") ///CHANGE TO Income history for the month of...
+            .navigationBarTitle("\(currentMonthName)'s INCOMES")
             .navigationBarItems(
                 leading: Button(action: {
-                    // Handle the action to go back to the MainView
                     activeSheet = nil // Dismiss the IncomeView
                 }) {
                     Image(systemName: "arrow.left")
@@ -36,17 +51,8 @@ struct IncomeHistoryView: View {
                 }
             )
         }
-    }
-    
-    func deleteIncome(at offsets: IndexSet) {
-        let incomesToDelete = offsets.compactMap { incomeManager.incomes.reversed()[$0] }
-        for income in incomesToDelete {
-            if income.category != "Monthly budget" {
-                if let index = incomeManager.incomes.firstIndex(where: { $0.id == income.id }) {
-                    incomeManager.incomes.remove(at: index)
-                }
-            }
-        }
+        
+        
     }
     
     func formatAsCurrency(amount: Double) -> String {

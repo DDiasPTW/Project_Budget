@@ -10,6 +10,7 @@ struct Income: Identifiable,Codable{
     var customMonth: Int?
     var customDay: Int?
     var isArchived: Bool = false
+    var nextScheduledDate: Date?
 }
 
 class IncomeManager: ObservableObject {
@@ -24,11 +25,51 @@ class IncomeManager: ObservableObject {
             .mapValues { $0.reduce(0) { $0 + $1.amount } }
     }
 
+    var lastCheckedDate: Date {
+        get {
+            let date = UserDefaults.standard.object(forKey: "lastCheckedDateIncome") as? Date
+            //print("Retrieved lastCheckedDate: \(String(describing: date))")
+            return date ?? Date()
+        }
+        set {
+            //print("Setting lastCheckedDate to: \(newValue)")
+            UserDefaults.standard.set(newValue, forKey: "lastCheckedDateIncome")
+        }
+    }
+    
     
     // Function to add an income item to the list
     func addIncome(_ income: Income) {
         incomes.append(income)
         saveIncomes()
+    }
+    
+    func getNextScheduledDate(for income: Income) -> Date? {
+        let currentDate = Date()
+        switch income.frequency {
+        case "Every day":
+            return Calendar.current.date(byAdding: .day, value: 1, to: currentDate)
+        case "Every week":
+            return Calendar.current.date(byAdding: .weekOfYear, value: 1, to: currentDate)
+        case "Every month":
+            return Calendar.current.date(byAdding: .month, value: 1, to: currentDate)
+        case "Every year":
+            return Calendar.current.date(byAdding: .year, value: 1, to: currentDate)
+        case "Other":
+            var newDate: Date? = currentDate
+            if let day = income.customDay {
+                newDate = Calendar.current.date(byAdding: .day, value: day, to: newDate!)
+            }
+            if let month = income.customMonth {
+                newDate = Calendar.current.date(byAdding: .month, value: month, to: newDate!)
+            }
+            if let year = income.customYear {
+                newDate = Calendar.current.date(byAdding: .year, value: year, to: newDate!)
+            }
+            return newDate
+        default:
+            return nil
+        }
     }
     
     // Function to save the incomes to UserDefaults
@@ -47,19 +88,25 @@ class IncomeManager: ObservableObject {
         }
     }
     
-    // Function to remove an income item from the list
-    func removeIncome(at offsets: IndexSet) {
-        // Get the amount to be subtracted from the balance
-        let amountToSubtract = incomes[offsets.first!].amount
-        // Remove the income from the list
-        incomes.remove(atOffsets: offsets)
+    func removeIncome(incomesToRemove: [Income]) {
+        for income in incomesToRemove {
+            // Get the amount to be subtracted from the balance
+            let amountToSubtract = income.amount
+            
+            // Remove the income from the list
+            if let index = incomes.firstIndex(where: { $0.id == income.id }) {
+                incomes.remove(at: index)
+            }
+            
+            // Update the balance in UserDefaults
+            let currentBalance = UserDefaults.standard.double(forKey: "balance")
+            UserDefaults.standard.set(currentBalance - amountToSubtract, forKey: "balance")
+        }
+        
         // Save the updated list to UserDefaults
         saveIncomes()
-        
-        // Update the balance in UserDefaults
-        let currentBalance = UserDefaults.standard.double(forKey: "balance")
-        UserDefaults.standard.set(currentBalance - amountToSubtract, forKey: "balance")
     }
+
 }
 
 struct IncomeView: View {
@@ -179,7 +226,9 @@ struct IncomeView: View {
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.synchronize() // Force immediate synchronization
             
-            let newIncome = Income(name: incomeName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            var newIncome = Income(name: incomeName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            
+            newIncome.nextScheduledDate = incomeManager.getNextScheduledDate(for: newIncome)
             
             incomeManager.addIncome(newIncome)
             activeSheet = nil // Dismiss the IncomeView

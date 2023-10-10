@@ -4,6 +4,12 @@ struct ExpenseHistoryView: View {
     @EnvironmentObject var expenseManager: ExpenseManager
     @Binding var activeSheet: ActiveSheet?
     
+    var currentMonthName: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMMM"
+        return dateFormatter.string(from: Date())
+    }
+    
     var body: some View {
         NavigationView {
             List{
@@ -27,11 +33,10 @@ struct ExpenseHistoryView: View {
                             expenseManager.removeExpense(at: IndexSet(reversedOffsets))
                         }
                     }
-                    .navigationBarTitle("Expense History") ///CHANGE TO Expense history for the month of...
+                    .navigationBarTitle("\(currentMonthName)'s EXPENSES")
                     .navigationBarItems(
                         leading: Button(action: {
-                            // Handle the action to go back to the MainView
-                            activeSheet = nil // Dismiss the ExpenseView
+                            activeSheet = nil
                         }) {
                             Image(systemName: "arrow.left")
                                 .foregroundColor(.blue)

@@ -10,6 +10,7 @@ struct Expense: Identifiable,Codable{
     var customMonth: Int?
     var customDay: Int?
     var isArchived: Bool = false
+    var nextScheduledDate: Date?
 }
 
 class ExpenseManager: ObservableObject {
@@ -24,21 +25,57 @@ class ExpenseManager: ObservableObject {
             .mapValues { $0.reduce(0) { $0 + $1.amount } }
     }
     
-    // Function to add an expense item to the list
-    func addExpense(name: String, category: String, amount: Double, frequency: String, customYear: Int? = nil, customMonth: Int? = nil, customDay: Int? = nil) {
-        let newExpense = Expense(name: name, category: category, amount: amount, frequency: frequency, customYear: customYear, customMonth: customMonth, customDay: customDay)
-        
-        expenses.append(newExpense)
-        
+    var lastCheckedDate: Date {
+        get {
+            let date = UserDefaults.standard.object(forKey: "lastCheckedDate") as? Date
+            //print("Retrieved lastCheckedDate: \(String(describing: date))")
+            return date ?? Date()
+        }
+        set {
+            //print("Setting lastCheckedDate to: \(newValue)")
+            UserDefaults.standard.set(newValue, forKey: "lastCheckedDate")
+        }
+    }
+    
+    func addExpense(_ expense: Expense){
+        expenses.append(expense)
         saveExpenses()
     }
     
+    func getNextScheduledDate(for expense: Expense) -> Date? {
+        let currentDate = Date()
+        switch expense.frequency {
+        case "Every day":
+            return Calendar.current.date(byAdding: .day, value: 1, to: currentDate)
+        case "Every week":
+            return Calendar.current.date(byAdding: .weekOfYear, value: 1, to: currentDate)
+        case "Every month":
+            return Calendar.current.date(byAdding: .month, value: 1, to: currentDate)
+        case "Every year":
+            return Calendar.current.date(byAdding: .year, value: 1, to: currentDate)
+        case "Other":
+            var newDate: Date? = currentDate
+            if let day = expense.customDay {
+                newDate = Calendar.current.date(byAdding: .day, value: day, to: newDate!)
+            }
+            if let month = expense.customMonth {
+                newDate = Calendar.current.date(byAdding: .month, value: month, to: newDate!)
+            }
+            if let year = expense.customYear {
+                newDate = Calendar.current.date(byAdding: .year, value: year, to: newDate!)
+            }
+            return newDate
+        default:
+            return nil
+        }
+    }
     
     // Function to save the expenses to UserDefaults
     func saveExpenses() {
         if let encodedData = try? JSONEncoder().encode(expenses) {
             UserDefaults.standard.set(encodedData, forKey: "expenses")
         }
+        //print("Saved expenses: \(expenses)")
     }
     
     // Function to load expenses from UserDefaults
@@ -97,7 +134,7 @@ struct ExpenseView: View {
                         
                         TextField("Expense Amount", text: $expenseAmount)
                             .padding()
-                            .keyboardType(.decimalPad) // Use .decimalPad for decimal input
+                            .keyboardType(.decimalPad)
                     }
                     
                     Section{
@@ -157,7 +194,7 @@ struct ExpenseView: View {
                         .overlay(Image(systemName: "minus").font(.title).foregroundColor(.white))
                         .background(Color.clear)
                 }
-                .disabled(expenseName.isEmpty || expenseAmount.isEmpty) // Disable the button if fields are empty
+                .disabled(expenseName.isEmpty || expenseAmount.isEmpty)
                 .padding()
             }
             .navigationTitle("Add expense")
@@ -165,8 +202,7 @@ struct ExpenseView: View {
             .navigationBarBackButtonHidden(true)
             .navigationBarItems(
                 leading: Button(action: {
-                    // Handle the action to go back to the MainView
-                    activeSheet = nil // Dismiss the expenseView
+                    activeSheet = nil
                 }) {
                     Image(systemName: "arrow.left")
                         .foregroundColor(.blue)
@@ -185,11 +221,15 @@ struct ExpenseView: View {
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.synchronize() // Force immediate synchronization
             
-            expenseManager.addExpense(name: expenseName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            var expense = Expense(name: expenseName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            
+            expense.nextScheduledDate = expenseManager.getNextScheduledDate(for: expense)
+
+            expenseManager.addExpense(expense)
+            activeSheet = nil // Dismiss the expenseView
         }
-        activeSheet = nil // Dismiss the expenseView
-        
     }
+    
     
 }
 
