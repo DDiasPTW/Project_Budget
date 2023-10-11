@@ -11,6 +11,7 @@ struct Expense: Identifiable,Codable{
     var customDay: Int?
     var isArchived: Bool = false
     var nextScheduledDate: Date?
+    var creationDate: Date
 }
 
 class ExpenseManager: ObservableObject {
@@ -28,11 +29,9 @@ class ExpenseManager: ObservableObject {
     var lastCheckedDate: Date {
         get {
             let date = UserDefaults.standard.object(forKey: "lastCheckedDate") as? Date
-            //print("Retrieved lastCheckedDate: \(String(describing: date))")
             return date ?? Date()
         }
         set {
-            //print("Setting lastCheckedDate to: \(newValue)")
             UserDefaults.standard.set(newValue, forKey: "lastCheckedDate")
         }
     }
@@ -221,7 +220,7 @@ struct ExpenseView: View {
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.synchronize() // Force immediate synchronization
             
-            var expense = Expense(name: expenseName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            var expense = Expense(name: expenseName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil, creationDate: Date())
             
             expense.nextScheduledDate = expenseManager.getNextScheduledDate(for: expense)
 

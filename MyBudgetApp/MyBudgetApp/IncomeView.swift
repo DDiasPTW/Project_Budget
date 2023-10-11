@@ -11,6 +11,7 @@ struct Income: Identifiable,Codable{
     var customDay: Int?
     var isArchived: Bool = false
     var nextScheduledDate: Date?
+    var creationDate: Date
 }
 
 class IncomeManager: ObservableObject {
@@ -28,11 +29,9 @@ class IncomeManager: ObservableObject {
     var lastCheckedDate: Date {
         get {
             let date = UserDefaults.standard.object(forKey: "lastCheckedDateIncome") as? Date
-            //print("Retrieved lastCheckedDate: \(String(describing: date))")
             return date ?? Date()
         }
         set {
-            //print("Setting lastCheckedDate to: \(newValue)")
             UserDefaults.standard.set(newValue, forKey: "lastCheckedDateIncome")
         }
     }
@@ -226,7 +225,7 @@ struct IncomeView: View {
             UserDefaults.standard.set(mainViewBalance, forKey: "balance")
             UserDefaults.standard.synchronize() // Force immediate synchronization
             
-            var newIncome = Income(name: incomeName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil)
+            var newIncome = Income(name: incomeName, category: selectedCategory, amount: number, frequency: selectedFrequency, customYear: selectedFrequency == "Other" ? customYear : nil, customMonth: selectedFrequency == "Other" ? customMonth : nil, customDay: selectedFrequency == "Other" ? customDay : nil, creationDate: Date())
             
             newIncome.nextScheduledDate = incomeManager.getNextScheduledDate(for: newIncome)
             

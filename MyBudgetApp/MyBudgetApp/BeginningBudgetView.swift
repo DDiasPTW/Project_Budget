@@ -68,7 +68,7 @@ struct BeginningBudgetView: View {
                 UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
                 UserDefaults.standard.set(number, forKey: "startingBudgetOfMonth")
                 UserDefaults.standard.synchronize() // Force immediate synchronization
-                let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: number, frequency: "Every month", customYear: nil, customMonth: nil, customDay: nil)
+                let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: number, frequency: "Every month", customYear: nil, customMonth: nil, customDay: nil, creationDate: Date())
                 incomeManager.addIncome(newIncome)
             }
         }
