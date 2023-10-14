@@ -100,6 +100,30 @@ class ExpenseManager: ObservableObject {
         saveExpenses()
     }
     
+    func removeExpensesMatchingCondition(_ predicate: (Expense) -> Bool) {
+            // Find the indices of the expenses that match the predicate
+            let indicesToRemove = expenses.indices.filter { predicate(expenses[$0]) }
+            
+            // Convert the indices to an IndexSet
+            let offsets = IndexSet(indicesToRemove)
+            
+            // Calculate the total amount to be added back to the balance
+            let totalAmountToDeduct = offsets.compactMap { expenses[$0].amount }.reduce(0, +)
+            print("Adding \(totalAmountToDeduct)")
+            // Remove the expenses from the list
+            expenses.remove(atOffsets: offsets)
+            
+            // Update the balance in UserDefaults
+            let currentBalance = UserDefaults.standard.double(forKey: "balance")
+            UserDefaults.standard.set(currentBalance + totalAmountToDeduct, forKey: "balance")
+            
+            print("balance after re-adding: \(currentBalance + totalAmountToDeduct)")
+        
+            // Save the updated list to UserDefaults
+            saveExpenses()
+        }
+
+    
     func deleteAllExpenses() {
         let totalExpenseToRemove = expenses.filter { !$0.isArchived }
             .reduce(0) { $0 + $1.amount }

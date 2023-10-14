@@ -105,6 +105,32 @@ class IncomeManager: ObservableObject {
         // Save the updated list to UserDefaults
         saveIncomes()
     }
+    
+    func removeIncomesMatchingCondition(_ predicate: (Income) -> Bool) {
+        // Find the indices of the incomes that match the predicate
+        let indicesToRemove = incomes.indices.filter { predicate(incomes[$0]) }
+        
+        // Convert the indices to an IndexSet
+        let offsets = IndexSet(indicesToRemove)
+        
+        // Calculate the total amount to be deducted from the balance, excluding "Monthly budget" category
+        let totalAmountToDeduct = offsets.compactMap { incomes[$0].category != "Monthly budget" ? incomes[$0].amount : nil }.reduce(0, +)
+        print("Removing \(totalAmountToDeduct)")
+        
+        // Remove the incomes from the list
+        incomes.remove(atOffsets: offsets)
+        
+        // Update the balance in UserDefaults
+        let currentBalance = UserDefaults.standard.double(forKey: "balance")
+        UserDefaults.standard.set(currentBalance - totalAmountToDeduct, forKey: "balance")
+        
+        print("BALANCE after removing: \(currentBalance - totalAmountToDeduct)")
+        
+        // Save the updated list to UserDefaults
+        saveIncomes()
+    }
+
+
 
     func deleteAllIncomes() {
         let totalIncomeToRemove = incomes.filter { !$0.isArchived && $0.category != "Monthly budget" }

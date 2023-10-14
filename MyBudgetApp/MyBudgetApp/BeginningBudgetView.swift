@@ -66,7 +66,7 @@ struct BeginningBudgetView: View {
                 // Update UserDefaults balance value here
                 UserDefaults.standard.set(mainViewBalance, forKey: "balance")
                 UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-                UserDefaults.standard.set(number, forKey: "startingBudgetOfMonth")
+                updateMonthlyBudget(newBudget: number)
                 UserDefaults.standard.synchronize() // Force immediate synchronization
                 let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: number, frequency: "Every month", customYear: nil, customMonth: nil, customDay: nil, creationDate: Date())
                 incomeManager.addIncome(newIncome)
@@ -83,6 +83,7 @@ struct BeginningBudgetView: View {
     
     func updateMonthlyBudget(newBudget: Double) {
         UserDefaults.standard.set(newBudget, forKey: "nextMonthBudget")
+        print("Next month's budget set to \(newBudget)")
     }
 }
 

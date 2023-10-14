@@ -72,8 +72,8 @@ struct MainView: View {
     
     @State private var dataUpdated: Bool = false
     
-    var startingBudgetOfMonth: Double {
-        return UserDefaults.standard.double(forKey: "startingBudgetOfMonth")
+    var BudgetOfMonth: Double {
+        return UserDefaults.standard.double(forKey: "nextMonthBudget")
     }
     
     var pieChartData: [PieChartData] {
@@ -106,7 +106,7 @@ struct MainView: View {
                     .foregroundColor(balance < 0 ? Color.red : Color.black)
                     .padding(.top)
                 
-                Text("(\(formatAsCurrency(amount: startingBudgetOfMonth)))")
+                Text("(\(formatAsCurrency(amount: BudgetOfMonth)))")
                     .font(.caption)
                     .fontWeight(.light)
                 
@@ -176,8 +176,8 @@ struct MainView: View {
             expenseManager.loadExpenses()
             
             // 2. Deduct scheduled expenses and add scheduled incomes.
-            deductScheduledExpenses()
-            addScheduledIncomes()
+            //deductScheduledExpenses()
+            //addScheduledIncomes()
             
             //3. Check and reset the balance if need be
             checkAndResetBalance()
@@ -219,13 +219,12 @@ struct MainView: View {
             set: { newValue in
                 self.balance = newValue
                 UserDefaults.standard.set(newValue, forKey: "balance")
-                UserDefaults.standard.synchronize() // Force immediate synchronization
+                //UserDefaults.standard.synchronize() // Force immediate synchronization
             }
         )
     }
     
 //    ///Reset the monthly budget every 1st of the month
-//    
     func getLatestMonthlyBudget() -> Double? {
         for income in incomeManager.incomes.reversed() {
             if income.category == "Monthly budget" {
@@ -241,80 +240,87 @@ struct MainView: View {
         dateFormatter.dateFormat = "MMMM"
         let monthName = dateFormatter.string(from: currentDate)
         let calendar = Calendar.current
-        
+
         let lastOpenedDate = UserDefaults.standard.object(forKey: "lastOpenedDate") as? Date ?? Date()
         let lastOpenedComponents = calendar.dateComponents([.year, .month], from: lastOpenedDate)
         let currentComponents = calendar.dateComponents([.year, .month], from: currentDate)
-        
+
         if lastOpenedComponents.month != currentComponents.month {
+            print("This is a different month")
+
             let lastResetMonth = UserDefaults.standard.integer(forKey: "lastResetMonth")
             let currentMonth = calendar.component(.month, from: currentDate)
-            
+
             if lastResetMonth != currentMonth {
                 // Check if there's a new budget set for the next month
                 if let nextMonthBudget = UserDefaults.standard.value(forKey: "nextMonthBudget") as? Double {
                     balance = nextMonthBudget
-                    UserDefaults.standard.removeObject(forKey: "nextMonthBudget")
-                } else if let monthlyBudget = getLatestMonthlyBudget() {
-                    balance = monthlyBudget
-                }
-                
-                UserDefaults.standard.set(currentMonth, forKey: "lastResetMonth")
-                UserDefaults.standard.set(balance, forKey: "balance")
-                UserDefaults.standard.set(balance, forKey: "startingBudgetOfMonth")
-                UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-                UserDefaults.standard.synchronize()
-                
-                // Archive all current incomes and adjust balance
-                for index in incomeManager.incomes.indices.reversed() where calendar.component(.month, from: incomeManager.incomes[index].creationDate) != currentMonth {
-                    // Check if the income has been claimed
-                    if let nextDate = incomeManager.incomes[index].nextScheduledDate, nextDate <= Date() {
-                        incomeManager.incomes[index].isArchived = true
-                        incomeManager.incomes.remove(at: index)
-                    }
-                }
 
-                // Archive all current expenses and adjust balance
-                for index in expenseManager.expenses.indices.reversed() where calendar.component(.month, from: expenseManager.expenses[index].creationDate) != currentMonth {
-                    // Check if the expense has been claimed
-                    if let nextDate = expenseManager.expenses[index].nextScheduledDate, nextDate <= Date() {
-                        expenseManager.expenses[index].isArchived = true
-                        expenseManager.expenses.remove(at: index)
-                    }
-                }
+                    print("Budget of: \(nextMonthBudget)")
 
-                
-                dataUpdated.toggle()
-                // Save the updated incomes and expenses
-                incomeManager.saveIncomes()
-                expenseManager.saveExpenses()
-                
-                // Add the new budget to the IncomeHistoryView
-                let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: balance, frequency: "One-time", customYear: nil, customMonth: nil, customDay: nil, creationDate: Date())
-                incomeManager.addIncome(newIncome)
+                    UserDefaults.standard.set(currentMonth, forKey: "lastResetMonth")
+                    UserDefaults.standard.set(balance, forKey: "balance")
+                    UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+                    //UserDefaults.standard.synchronize()
+
+                    // Add the new budget to the IncomeHistoryView
+                    let newIncome = Income(name: "Budget for \(monthName)", category: "Monthly budget", amount: balance, frequency: "One-time", customYear: nil, customMonth: nil, customDay: nil, creationDate: Date())
+                    incomeManager.addIncome(newIncome)
+                }
             }
-        }
 
+            //deductScheduledExpenses()
+            //addScheduledIncomes()
+            
+            let clonedExpenses = expenseManager.expenses
+            let clonedIncomes = incomeManager.incomes
+
+            expenseManager.removeExpensesMatchingCondition { calendar.component(.month, from: $0.creationDate) != currentMonth }
+            incomeManager.removeIncomesMatchingCondition { calendar.component(.month, from: $0.creationDate) != currentMonth }
+            
+            // Deduct the scheduled expenses for the current month using the cloned list
+            deductScheduledExpenses(using: clonedExpenses)
+            addScheduledIncomes(using: clonedIncomes)
+
+        } else {
+            print("Same month as before")
+            deductScheduledExpenses()
+            addScheduledIncomes()
+        }
+        
+        incomeManager.saveIncomes()
+        expenseManager.saveExpenses()
+        //print("Final balance is: \(balance)")
         UserDefaults.standard.set(currentDate, forKey: "lastOpenedDate")
     }
-     
     
-    func deductScheduledExpenses() {
+    func deductScheduledExpenses(using expenses: [Expense]? = nil) {
         let currentDate = Date()
         let calendar = Calendar.current
         let currentMonth = calendar.component(.month, from: currentDate)
         let lastOpenedDate = UserDefaults.standard.object(forKey: "lastOpenedDate") as? Date ?? Date()
-        var pseudoDate = Calendar.current.date(byAdding: .day, value: 1, to: lastOpenedDate)!
+        var pseudoDate = lastOpenedDate
+        let expensesToUse = expenses ?? self.expenseManager.expenses
+
         
         print("Current Date: \(currentDate)")
         print("Total number of expenses: \(expenseManager.expenses.count)")
         
-        while pseudoDate <= currentDate {
+        // Check if the lastOpenedDate is from a previous month
+        if calendar.component(.month, from: lastOpenedDate) != currentMonth {
+            pseudoDate = calendar.date(from: DateComponents(year: calendar.component(.year, from: currentDate), month: currentMonth, day: 1))!
+        }
+        
+        while calendar.isDate(pseudoDate, inSameDayAs: currentDate) || pseudoDate <= currentDate {
             var expensesDeductedToday: [String] = [] // To keep track of expenses deducted for the current pseudoDate
             var checkedExpenses: Set<String> = [] // To keep track of expenses that have been checked for the current pseudoDate
             
-            for index in expenseManager.expenses.indices {
-                var expense = expenseManager.expenses[index]
+            for index in expensesToUse.indices {
+                var expense = expensesToUse[index]
+                
+                if pseudoDate <= lastOpenedDate {
+                    continue
+                }
                 
                 if checkedExpenses.contains(expense.name) {
                     continue
@@ -322,13 +328,19 @@ struct MainView: View {
                 
                 print("Checking expense: \(expense.name) with next scheduled date: \(String(describing: expense.nextScheduledDate))")
                 
-                if let nextDate = expense.nextScheduledDate, pseudoDate >= nextDate, !expensesDeductedToday.contains(expense.name) {
+                if let nextDate = expense.nextScheduledDate, pseudoDate > nextDate, !expensesDeductedToday.contains(expense.name) {
+                    
+                    
+                    print("Pseudo: \(pseudoDate) , Last:\(lastOpenedDate)")
                     
                     print("Deducting \(expense.amount) for \(expense.name)")
                     
                     balance -= expense.amount
+                    
+                    print("Balance is now: \(balance)")
+                    
                     UserDefaults.standard.set(balance, forKey: "balance")
-                    UserDefaults.standard.synchronize()
+                    //UserDefaults.standard.synchronize()
                     
                     // Update the nextScheduledDate for this expense based on its frequency
                     switch expense.frequency {
@@ -369,42 +381,61 @@ struct MainView: View {
             
             pseudoDate = Calendar.current.date(byAdding: .day, value: 1, to: pseudoDate)!
         }
-        
-        // Remove all expenses that were created in a different month than the current one
-        expenseManager.expenses.removeAll(where: { calendar.component(.month, from: $0.creationDate) != currentMonth })
         expenseManager.saveExpenses()
     }
 
-    func addScheduledIncomes() {
+    func addScheduledIncomes(using incomes: [Income]? = nil) {
         let currentDate = Date()
         let calendar = Calendar.current
         let currentMonth = calendar.component(.month, from: currentDate)
         let lastOpenedDate = UserDefaults.standard.object(forKey: "lastOpenedDate") as? Date ?? Date()
-        var pseudoDate = Calendar.current.date(byAdding: .day, value: 1, to: lastOpenedDate)!
+        var pseudoDate = lastOpenedDate
+        let incomesToUse = incomes ?? self.incomeManager.incomes
+
         
         print("Current Date: \(currentDate)")
         print("Total number of incomes: \(incomeManager.incomes.count)")
         
-        while pseudoDate <= currentDate {
+        // Check if the lastOpenedDate is from a previous month
+        if calendar.component(.month, from: lastOpenedDate) != currentMonth {
+            pseudoDate = calendar.date(from: DateComponents(year: calendar.component(.year, from: currentDate), month: currentMonth, day: 1))!
+        }
+        
+        while calendar.isDate(pseudoDate, inSameDayAs: currentDate) || pseudoDate <= currentDate {
             var incomesAddedToday: [String] = [] // To keep track of expenses deducted for the current pseudoDate
             var checkedIncomes: Set<String> = [] // To keep track of expenses that have been checked for the current pseudoDate
             
-            for index in incomeManager.incomes.indices {
-                var income = incomeManager.incomes[index]
+            for index in incomesToUse.indices {
+                var income = incomesToUse[index]
+                
+                if pseudoDate <= lastOpenedDate {
+                    continue
+                }
                 
                 if checkedIncomes.contains(income.name) {
                     continue
                 }
                 
+                if income.category == "Monthly budget"{
+                    continue
+                }
+                
+                
                 print("Checking income: \(income.name) with next scheduled date: \(String(describing: income.nextScheduledDate))")
                 
-                if let nextDate = income.nextScheduledDate, pseudoDate >= nextDate, !incomesAddedToday.contains(income.name) {
+                if let nextDate = income.nextScheduledDate, pseudoDate > nextDate, !incomesAddedToday.contains(income.name) {
+                    
+                    
+                    print("Pseudo: \(pseudoDate) , Last:\(lastOpenedDate)")
                     
                     print("Adding \(income.amount) for \(income.name)")
                     
                     balance += income.amount
+                    
+                    print("Balance is now: \(balance)")
+                    
                     UserDefaults.standard.set(balance, forKey: "balance")
-                    UserDefaults.standard.synchronize()
+                    //UserDefaults.standard.synchronize()
                     
                     // Update the nextScheduledDate for this expense based on its frequency
                     switch income.frequency {
@@ -445,11 +476,13 @@ struct MainView: View {
             
             pseudoDate = Calendar.current.date(byAdding: .day, value: 1, to: pseudoDate)!
         }
-        
-        // Remove all expenses that were created in a different month than the current one
-        incomeManager.incomes.removeAll(where: { calendar.component(.month, from: $0.creationDate) != currentMonth })
         incomeManager.saveIncomes()
     }
+
+
+
+
+
     
     ///Pie chart
     
@@ -522,13 +555,3 @@ struct MainView: View {
         .environmentObject(IncomeManager())
         .environmentObject(ExpenseManager())
 }
-
-
-///KNOWN BUGS TO FIX:
-///-Frequent incomes/expenses not updating correctly when changing months. example:
-///    (FIXED) Income/Expense set as daily with value of 1 on october 10th. When opening the app on november 4th (25 days later) it adds/deducts the value 25 times.
-///             -New problem: Its adding the expenses/incomes correctly now, but it's not updating the balance
-///
-///
-///
-///     Not tested yet but definitely also gives problems with weekly, and custom. Monthly and yearly works fine
