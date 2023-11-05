@@ -106,6 +106,20 @@ class IncomeManager: ObservableObject {
         saveIncomes()
     }
 
+    func deleteAllIncomes() {
+        let totalIncomeToRemove = incomes.filter { !$0.isArchived && $0.category != "Monthly budget" }
+            .reduce(0) { $0 + $1.amount }
+        
+        incomes.removeAll { income in
+            return !income.isArchived && income.category != "Monthly budget"
+        }
+        
+        // Deduct the total income from the balance
+        let currentBalance = UserDefaults.standard.double(forKey: "balance")
+        UserDefaults.standard.set(currentBalance - totalIncomeToRemove, forKey: "balance")
+        
+        saveIncomes()
+    }
 }
 
 struct IncomeView: View {

@@ -14,35 +14,41 @@ struct ExpenseHistoryView: View {
         NavigationView {
             List{
                 ForEach(expenseManager.expenses.filter { !$0.isArchived }.reversed()) { expense in
-                            VStack(alignment: .leading) {
-                                Text("\(expense.name)")
-                                    .fontWeight(.bold)
-                                Text("Category: \(expense.category)")
-                                Text("Amount: ")
-                                    + Text("- \(formatAsCurrency(amount: expense.amount))")
-                                        .fontWeight(.heavy)
-                                if expense.frequency == "Other", let year = expense.customYear, let month = expense.customMonth, let day = expense.customDay {
-                                    Text("Frequency: Every \(year) year(s), \(month) month(s), \(day) day(s)")
-                                } else {
-                                    Text("Frequency: \(expense.frequency)")
-                                }
-                            }
-                        }
-                        .onDelete { offsets in
-                            let reversedOffsets = offsets.map { expenseManager.expenses.count - 1 - $0 }
-                            expenseManager.removeExpense(at: IndexSet(reversedOffsets))
+                    VStack(alignment: .leading) {
+                        Text("\(expense.name)")
+                            .fontWeight(.bold)
+                        Text("Category: \(expense.category)")
+                        Text("Amount: ")
+                        + Text("- \(formatAsCurrency(amount: expense.amount))")
+                            .fontWeight(.heavy)
+                        if expense.frequency == "Other", let year = expense.customYear, let month = expense.customMonth, let day = expense.customDay {
+                            Text("Frequency: Every \(year) year(s), \(month) month(s), \(day) day(s)")
+                        } else {
+                            Text("Frequency: \(expense.frequency)")
                         }
                     }
-                    .navigationBarTitle("\(currentMonthName)'s EXPENSES")
-                    .navigationBarItems(
-                        leading: Button(action: {
-                            activeSheet = nil
-                        }) {
-                            Image(systemName: "arrow.left")
-                                .foregroundColor(.blue)
-                        }
-                    )
                 }
+                .onDelete { offsets in
+                    let reversedOffsets = offsets.map { expenseManager.expenses.count - 1 - $0 }
+                    expenseManager.removeExpense(at: IndexSet(reversedOffsets))
+                }
+            }
+            .navigationBarTitle("\(currentMonthName)'s EXPENSES")
+            .navigationBarItems(
+                leading: Button(action: {
+                    activeSheet = nil
+                }) {
+                    Image(systemName: "arrow.left")
+                        .foregroundColor(.blue)
+                },
+                trailing: Button(action: {
+                    expenseManager.deleteAllExpenses()
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.blue)
+                }
+            )
+        }
     }
     
     func formatAsCurrency(amount: Double) -> String {
@@ -61,7 +67,7 @@ struct ExpenseHistoryView: View {
             return formattedAmount
         }
     }
-
+    
 }
 
 

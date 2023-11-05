@@ -170,18 +170,18 @@ struct MainView: View {
         }
         .onAppear() {
             cumulativeAngle = 0.0
-
+            
             // 1. Load all incomes and expenses from storage.
             incomeManager.loadIncomes()
             expenseManager.loadExpenses()
-
+            
             // 2. Deduct scheduled expenses and add scheduled incomes.
             deductScheduledExpenses()
             addScheduledIncomes()
             
             //3. Check and reset the balance if need be
             checkAndResetBalance()
-
+            
             // 4. Update any expenses and incomes that don't have a nextScheduledDate set.
             for index in expenseManager.expenses.indices {
                 if expenseManager.expenses[index].nextScheduledDate == nil {
@@ -193,7 +193,7 @@ struct MainView: View {
                     incomeManager.incomes[index].nextScheduledDate = incomeManager.getNextScheduledDate(for: incomeManager.incomes[index])
                 }
             }
-
+            
             // 5. Save any changes made to the expenses and incomes.
             expenseManager.saveExpenses()
             incomeManager.saveIncomes()
@@ -203,10 +203,6 @@ struct MainView: View {
                 activeSheet = .beginningBudgetView //Control the presentation of the beginningBudgetView
             }
         }
-
-
-        
-        
         
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             balance = UserDefaults.standard.double(forKey: "balance")
@@ -228,8 +224,8 @@ struct MainView: View {
         )
     }
     
-    ///Reset the monthly budget every 1st of the month
-    
+//    ///Reset the monthly budget every 1st of the month
+//    
     func getLatestMonthlyBudget() -> Double? {
         for income in incomeManager.incomes.reversed() {
             if income.category == "Monthly budget" {
@@ -269,17 +265,24 @@ struct MainView: View {
                 UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
                 UserDefaults.standard.synchronize()
                 
-                // Archive all current incomes and expenses
+                // Archive all current incomes and adjust balance
                 for index in incomeManager.incomes.indices.reversed() where calendar.component(.month, from: incomeManager.incomes[index].creationDate) != currentMonth {
-                    incomeManager.incomes[index].isArchived = true
-                    incomeManager.incomes.remove(at: index)
+                    // Check if the income has been claimed
+                    if let nextDate = incomeManager.incomes[index].nextScheduledDate, nextDate <= Date() {
+                        incomeManager.incomes[index].isArchived = true
+                        incomeManager.incomes.remove(at: index)
+                    }
                 }
-                
-                // Archive and remove expenses from previous months
+
+                // Archive all current expenses and adjust balance
                 for index in expenseManager.expenses.indices.reversed() where calendar.component(.month, from: expenseManager.expenses[index].creationDate) != currentMonth {
-                    expenseManager.expenses[index].isArchived = true
-                    expenseManager.expenses.remove(at: index)
+                    // Check if the expense has been claimed
+                    if let nextDate = expenseManager.expenses[index].nextScheduledDate, nextDate <= Date() {
+                        expenseManager.expenses[index].isArchived = true
+                        expenseManager.expenses.remove(at: index)
+                    }
                 }
+
                 
                 dataUpdated.toggle()
                 // Save the updated incomes and expenses
@@ -291,10 +294,11 @@ struct MainView: View {
                 incomeManager.addIncome(newIncome)
             }
         }
-        
+
         UserDefaults.standard.set(currentDate, forKey: "lastOpenedDate")
     }
-       
+     
+    
     func deductScheduledExpenses() {
         let currentDate = Date()
         let calendar = Calendar.current
@@ -306,12 +310,19 @@ struct MainView: View {
         print("Total number of expenses: \(expenseManager.expenses.count)")
         
         while pseudoDate <= currentDate {
+            var expensesDeductedToday: [String] = [] // To keep track of expenses deducted for the current pseudoDate
+            var checkedExpenses: Set<String> = [] // To keep track of expenses that have been checked for the current pseudoDate
+            
             for index in expenseManager.expenses.indices {
                 var expense = expenseManager.expenses[index]
                 
+                if checkedExpenses.contains(expense.name) {
+                    continue
+                }
+                
                 print("Checking expense: \(expense.name) with next scheduled date: \(String(describing: expense.nextScheduledDate))")
                 
-                if let nextDate = expense.nextScheduledDate, pseudoDate >= nextDate {
+                if let nextDate = expense.nextScheduledDate, pseudoDate >= nextDate, !expensesDeductedToday.contains(expense.name) {
                     
                     print("Deducting \(expense.amount) for \(expense.name)")
                     
@@ -319,34 +330,17 @@ struct MainView: View {
                     UserDefaults.standard.set(balance, forKey: "balance")
                     UserDefaults.standard.synchronize()
                     
-                    var deductedFrequency: String
-                    // Update the nextScheduledDate for this expense
+                    // Update the nextScheduledDate for this expense based on its frequency
                     switch expense.frequency {
                     case "Every day":
-                        deductedFrequency = "Daily"
                         expense.nextScheduledDate = Calendar.current.date(byAdding: .day, value: 1, to: nextDate)
                     case "Every week":
-                        deductedFrequency = "Weekly"
                         expense.nextScheduledDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: nextDate)
                     case "Every month":
-                        deductedFrequency = "Monthly"
                         expense.nextScheduledDate = Calendar.current.date(byAdding: .month, value: 1, to: nextDate)
                     case "Every year":
-                        deductedFrequency = "Yearly"
                         expense.nextScheduledDate = Calendar.current.date(byAdding: .year, value: 1, to: nextDate)
                     case "Other":
-                        var components: [String] = []
-                        if let day = expense.customDay, day > 0 {
-                            components.append("\(day) day\(day > 1 ? "s" : "")")
-                        }
-                        if let month = expense.customMonth, month > 0 {
-                            components.append("\(month) month\(month > 1 ? "s" : "")")
-                        }
-                        if let year = expense.customYear, year > 0 {
-                            components.append("\(year) year\(year > 1 ? "s" : "")")
-                        }
-                        deductedFrequency = "Every \(components.joined(separator: ", "))"
-                        
                         var newDate: Date? = nextDate
                         if let day = expense.customDay {
                             newDate = Calendar.current.date(byAdding: .day, value: day, to: newDate!)
@@ -359,16 +353,20 @@ struct MainView: View {
                         }
                         expense.nextScheduledDate = newDate
                     default:
-                        deductedFrequency = ""
                         break
                     }
                     
                     // Create a new expense entry for the deduction with the pseudoDate as its creation date
-                    let deductedExpense = Expense(name: expense.name, category: expense.category, amount: expense.amount, frequency: deductedFrequency, customYear: nil, customMonth: nil, customDay: nil, creationDate: pseudoDate)
+                    var deductedExpense = Expense(name: expense.name, category: expense.category, amount: expense.amount, frequency: expense.frequency, customYear: nil, customMonth: nil, customDay: nil, creationDate: pseudoDate)
+                    deductedExpense.nextScheduledDate = expense.nextScheduledDate
                     expenseManager.addExpense(deductedExpense)
+                    
+                    expensesDeductedToday.append(expense.name) // Add the expense name to the list of expenses deducted for the current pseudoDate
                 }
+                checkedExpenses.insert(expense.name) // Add the expense name to the set of checked expenses for the current pseudoDate
                 expenseManager.expenses[index] = expense
             }
+            
             pseudoDate = Calendar.current.date(byAdding: .day, value: 1, to: pseudoDate)!
         }
         
@@ -376,7 +374,7 @@ struct MainView: View {
         expenseManager.expenses.removeAll(where: { calendar.component(.month, from: $0.creationDate) != currentMonth })
         expenseManager.saveExpenses()
     }
-    
+
     func addScheduledIncomes() {
         let currentDate = Date()
         let calendar = Calendar.current
@@ -388,48 +386,37 @@ struct MainView: View {
         print("Total number of incomes: \(incomeManager.incomes.count)")
         
         while pseudoDate <= currentDate {
+            var incomesAddedToday: [String] = [] // To keep track of expenses deducted for the current pseudoDate
+            var checkedIncomes: Set<String> = [] // To keep track of expenses that have been checked for the current pseudoDate
+            
             for index in incomeManager.incomes.indices {
                 var income = incomeManager.incomes[index]
                 
+                if checkedIncomes.contains(income.name) {
+                    continue
+                }
+                
                 print("Checking income: \(income.name) with next scheduled date: \(String(describing: income.nextScheduledDate))")
                 
-                if let nextDate = income.nextScheduledDate, currentDate >= nextDate {
+                if let nextDate = income.nextScheduledDate, pseudoDate >= nextDate, !incomesAddedToday.contains(income.name) {
                     
                     print("Adding \(income.amount) for \(income.name)")
                     
-                    // Deduct the expense amount
                     balance += income.amount
                     UserDefaults.standard.set(balance, forKey: "balance")
                     UserDefaults.standard.synchronize()
                     
-                    var addedFrequency: String
-                    // Update the nextScheduledDate for this expense
+                    // Update the nextScheduledDate for this expense based on its frequency
                     switch income.frequency {
                     case "Every day":
-                        addedFrequency = "Daily"
                         income.nextScheduledDate = Calendar.current.date(byAdding: .day, value: 1, to: nextDate)
                     case "Every week":
-                        addedFrequency = "Weekly"
                         income.nextScheduledDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: nextDate)
                     case "Every month":
-                        addedFrequency = "Monthly"
                         income.nextScheduledDate = Calendar.current.date(byAdding: .month, value: 1, to: nextDate)
                     case "Every year":
-                        addedFrequency = "Yearly"
                         income.nextScheduledDate = Calendar.current.date(byAdding: .year, value: 1, to: nextDate)
                     case "Other":
-                        var components: [String] = []
-                        if let day = income.customDay, day > 0 {
-                            components.append("\(day) day\(day > 1 ? "s" : "")")
-                        }
-                        if let month = income.customMonth, month > 0 {
-                            components.append("\(month) month\(month > 1 ? "s" : "")")
-                        }
-                        if let year = income.customYear, year > 0 {
-                            components.append("\(year) year\(year > 1 ? "s" : "")")
-                        }
-                        addedFrequency = "Every \(components.joined(separator: ", "))"
-                        
                         var newDate: Date? = nextDate
                         if let day = income.customDay {
                             newDate = Calendar.current.date(byAdding: .day, value: day, to: newDate!)
@@ -442,18 +429,24 @@ struct MainView: View {
                         }
                         income.nextScheduledDate = newDate
                     default:
-                        addedFrequency = ""
                         break
                     }
-                    // Create a new expense entry for the deduction
-                    let addedIncome = Income(name: income.name, category: income.category, amount: income.amount, frequency: addedFrequency, customYear: nil, customMonth: nil, customDay: nil, creationDate: Date())
+                    
+                    // Create a new expense entry for the deduction with the pseudoDate as its creation date
+                    var addedIncome = Income(name: income.name, category: income.category, amount: income.amount, frequency: income.frequency, customYear: nil, customMonth: nil, customDay: nil, creationDate: pseudoDate)
+                    addedIncome.nextScheduledDate = income.nextScheduledDate
                     incomeManager.addIncome(addedIncome)
+                    
+                    incomesAddedToday.append(income.name) // Add the expense name to the list of expenses deducted for the current pseudoDate
                 }
+                checkedIncomes.insert(income.name) // Add the expense name to the set of checked expenses for the current pseudoDate
                 incomeManager.incomes[index] = income
             }
+            
             pseudoDate = Calendar.current.date(byAdding: .day, value: 1, to: pseudoDate)!
         }
-        // Remove all incomes that were created in a different month than the current one
+        
+        // Remove all expenses that were created in a different month than the current one
         incomeManager.incomes.removeAll(where: { calendar.component(.month, from: $0.creationDate) != currentMonth })
         incomeManager.saveIncomes()
     }

@@ -92,13 +92,29 @@ class ExpenseManager: ObservableObject {
         let amountToAdd = expenses[offsets.first!].amount
         // Remove the income from the list
         expenses.remove(atOffsets: offsets)
-        // Save the updated list to UserDefaults
-        saveExpenses()
         
         // Update the balance in UserDefaults
         let currentBalance = UserDefaults.standard.double(forKey: "balance")
         UserDefaults.standard.set(currentBalance + amountToAdd, forKey: "balance")
+        // Save the updated list to UserDefaults
+        saveExpenses()
     }
+    
+    func deleteAllExpenses() {
+        let totalExpenseToRemove = expenses.filter { !$0.isArchived }
+            .reduce(0) { $0 + $1.amount }
+        
+        expenses.removeAll { !$0.isArchived }
+        
+        
+        // Add the total expense back to the balance
+        let currentBalance = UserDefaults.standard.double(forKey: "balance")
+        UserDefaults.standard.set(currentBalance + totalExpenseToRemove, forKey: "balance")
+        
+        saveExpenses()
+        
+    }
+
 }
 
 struct ExpenseView: View {

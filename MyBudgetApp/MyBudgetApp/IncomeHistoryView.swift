@@ -44,15 +44,19 @@ struct IncomeHistoryView: View {
             .navigationBarTitle("\(currentMonthName)'s INCOMES")
             .navigationBarItems(
                 leading: Button(action: {
-                    activeSheet = nil // Dismiss the IncomeView
+                    activeSheet = nil
                 }) {
                     Image(systemName: "arrow.left")
+                        .foregroundColor(.blue)
+                },
+                trailing: Button(action: {
+                    incomeManager.deleteAllIncomes()
+                }) {
+                    Image(systemName: "trash")
                         .foregroundColor(.blue)
                 }
             )
         }
-        
-        
     }
     
     func formatAsCurrency(amount: Double) -> String {
